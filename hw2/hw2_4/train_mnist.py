@@ -15,7 +15,7 @@ if __name__ == "__main__":
     # Get data loaders of training set and validation set
     train_loader, val_loader = get_dataloader(folder, batch_size=32)
 
-    # Specify the type of model
+    # Specify the typeㄋ of model
     if model_type == 'conv':
         model = ConvNet()
     elif model_type == 'fully':
@@ -31,9 +31,15 @@ if __name__ == "__main__":
     use_cuda = torch.cuda.is_available()
     if use_cuda:
         model.cuda()
-
     # Run any number of epochs you want
     ep = 10
+
+    training_accuracy = []
+    training_loss = []
+    validation_accuracy = []
+    validation_loss = []
+
+
     for epoch in range(ep):
         print('Epoch:', epoch)
         ##############
@@ -41,7 +47,7 @@ if __name__ == "__main__":
         ##############
         
         # Record the information of correct prediction and loss
-        correct_cnt, total_loss, total_cnt = 0, 0, 0
+        correct_cnt, total_loss, total_cnt, ave_loss = 0, 0, 0, 0
         
         # Load batch data from dataloader
         for batch, (x, label) in enumerate(train_loader,1):
@@ -72,17 +78,69 @@ if __name__ == "__main__":
                 print ('Training batch index: {}, train loss: {:.6f}, acc: {:.3f}'.format(
                     batch, ave_loss, acc))
 
+        training_accuracy.append(correct_cnt/total_cnt)
+        training_loss.append(ave_loss)
+
         ################
         ## Validation ##
         ################
         model.eval()
         # TODO
+        val_loss, val_acc = 0, 0
+        correct_cnt, total_loss, total_cnt, ave_loss = 0, 0, 0, 0
+
+        for batch, (x, label) in enumerate(val_loader,1):
+            pred_val = model(x)
+            loss = criterion(pred_val, label)
+
+            val_loss += loss.item()
+            _, pred_label = torch.max(pred_val, 1)
+            total_cnt += x.size(0)
+            correct_cnt += (pred_label == label).sum().item()
+
+            if batch == len(val_loader):
+                val_loss = val_loss / batch
+                val_acc = correct_cnt / total_cnt
+                print('Validation batch index: {}, val_loss: {:.6f}, acc" {:.3f}'.format(
+                    batch, val_loss, val_acc))
+
+        validation_accuracy.append(val_acc)
+        validation_loss.append(val_loss)
+
+
+
+
         model.train()
 
     # Save trained model
     torch.save(model.state_dict(), './checkpoint/%s.pth' % model.name())
 
+    print(model)
+
     # Plot Learning Curve
     # TODO
+    epoch = list(range(ep))
+
+    fig1 = plt.figure()
+    plt.plot(epoch, training_accuracy, 'r')
+    plt.plot(epoch, validation_accuracy, 'b')
+    plt.gca().legend(('training_accuracy', 'validation_accuracy'), loc = 'best')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.title('Accracy-Epoch')
+    plt.show(fig1)
+
+
+    fig2 = plt.figure()
+    plt.plot(epoch, training_loss, 'r')
+    plt.plot(epoch, validation_loss, 'b')
+    plt.gca().legend(('training_loss', 'validation_loss'), loc = 'best')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Loss-Epoch')
+    plt.show(fig2)
+
+
+
   
 
