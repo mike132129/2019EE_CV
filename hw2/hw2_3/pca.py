@@ -3,6 +3,7 @@ import cv2
 import argparse
 import os
 from sklearn.manifold import TSNE
+from sklearn.preprocessing import normalize
 import matplotlib.pyplot as plt
 import sys
 
@@ -36,11 +37,19 @@ def eigen_face(training_data):
 	for i in range(TRAIN_TOTAL):
 		normalized_training_data[i] = np.subtract(training_data[i], mean_face_img.flatten())
 
-	cov_matrix = np.matmul(normalized_training_data.transpose(), normalized_training_data)
-	cov_matrix = np.divide(cov_matrix, TRAIN_TOTAL)	
+	cov_matrix = np.matmul(normalized_training_data, normalized_training_data.transpose())/np.float(TRAIN_TOTAL)
 
-	eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)	
-	eigenface = eigenvectors.transpose().real
+	eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
+
+	idx = eigenvalues.argsort()[::-1]   
+	eigenvalues = eigenvalues[idx]
+	eigenvectors = eigenvectors[:,idx]
+
+	eigenface = eigenvectors.transpose()
+	eigenface = np.dot(eigenface, normalized_training_data)
+
+	eigenface = normalize(eigenface, axis = 1, norm = 'l2')
+
 
 	return eigenface
 
@@ -115,7 +124,7 @@ def main():
 	
 	weight = np.dot(eigenface, normalized_testing_img)
 
-	n = [5, 50, 150, 280]
+	n = [5, 50, 150, 279]
 	#plot mse
 	fig, ax = plt.subplots(1,4)
 	for i in range(4):
@@ -133,11 +142,12 @@ def main():
 
 
 	#test data projection
-	test_weight = np.zeros(shape = (120, width*height), dtype = np.float64)
+	test_weight = np.zeros(shape = (TEST_TOTAL, TRAIN_TOTAL), dtype = np.float64)
 	normalized_test_dataset = np.subtract(testing_data, mean_face_img.flatten())
-	for i in range(120):
-		test_weight[i,:] = np.dot(eigenface, normalized_test_dataset[i])
+	test_weight = np.dot(normalized_test_dataset, eigenface.transpose())
+
 	test_weight = test_weight[:, :100]
+	print
 	print(test_weight.shape)
 
 	t_SNE_visualizing(test_weight)

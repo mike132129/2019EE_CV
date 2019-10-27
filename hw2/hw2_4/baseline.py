@@ -40,21 +40,21 @@ def main():
 	folder = sys.argv[1]
 	train_loader, val_loader = get_dataloader(folder, batch_size = 1)
 	alex = alexnet(pretrained = True)
-
+	feats = []
 	for batch, (x, label) in enumerate(tqdm(train_loader),1):
 		
 		if torch.cuda.is_available():
 			x = x.cuda()
 			label = label.cuda()
 			alex = alex.cuda()
-		print(torch.cuda.is_available())
 		extractor = alexnet(pretrained = True).features
 		extractor.eval()
 		feat = extractor(x).view(x.size(0), 256, -1)
 		feat = torch.mean(feat, 2)
 		feat = feat.cpu().detach().numpy()
+		feats.append(feat)
 	
-	df = DataFrame(feat)
+	df = DataFrame(feats)
 	export_csv = df.to_csv(r'./data/export_feature.csv', index = None, header = False)
 
 

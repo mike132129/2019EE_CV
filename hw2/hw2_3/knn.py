@@ -69,7 +69,7 @@ def main():
 
 	for p in k:
 		for q in n:
-			train_weight = np.zeros(shape = (TRAIN_TOTAL, width*height), dtype = np.float64)
+			train_weight = np.zeros(shape = (TRAIN_TOTAL, TRAIN_TOTAL), dtype = np.float64)
 			for i in range(TRAIN_TOTAL):
 				train_weight[i,:] = np.dot(eigenface, normalized_train_img[i])
 			train_weight = train_weight[:, :q]
@@ -95,12 +95,12 @@ def main():
 	best_n = int(best_param[1])
 	
 	# apply the best hyperparameter to knn
-	train_weight = np.zeros(shape = (TRAIN_TOTAL, width*height), dtype = np.float64)
+	train_weight = np.zeros(shape = (TRAIN_TOTAL, TRAIN_TOTAL), dtype = np.float64)
 	for i in range(TRAIN_TOTAL):
 		train_weight[i,:] = np.dot(eigenface, normalized_train_img[i])
 	train_weight = train_weight[:, :best_n]
 
-	test_weight = np.zeros(shape = (TEST_TOTAL, width*height), dtype = np.float64)
+	test_weight = np.zeros(shape = (TEST_TOTAL, TRAIN_TOTAL), dtype = np.float64)
 	for i in range(TEST_TOTAL):
 		test_weight[i,:] = np.dot(eigenface, normalized_test_img[i])
 	test_weight = test_weight[:, :best_n]

@@ -15,7 +15,7 @@ if __name__ == "__main__":
     # Get data loaders of training set and validation set
     train_loader, val_loader = get_dataloader(folder, batch_size=32)
 
-    # Specify the typeㄋ of model
+    # Specify the type of model
     if model_type == 'conv':
         model = ConvNet()
     elif model_type == 'fully':
@@ -57,9 +57,12 @@ if __name__ == "__main__":
             if use_cuda:
                 x, label = x.cuda(), label.cuda()
             # Forward input tensor through your model
+
             out = model(x)
             # Calculate loss
+            print(out.shape, label.shape)
             loss = criterion(out, label)
+
             # Compute gradient of each model parameters base on calculated loss
             loss.backward()
             # Update model parameters using optimizer and gradients
