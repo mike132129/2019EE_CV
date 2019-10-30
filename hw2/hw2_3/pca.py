@@ -147,8 +147,6 @@ def main():
 	test_weight = np.dot(normalized_test_dataset, eigenface.transpose())
 
 	test_weight = test_weight[:, :100]
-	print
-	print(test_weight.shape)
 
 	t_SNE_visualizing(test_weight)
 
