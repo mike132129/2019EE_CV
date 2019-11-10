@@ -161,6 +161,7 @@ def main():
 	normalized_test_dataset = np.subtract(testing_data, mean_face_img.flatten())
 	test_weight = np.dot(normalized_test_dataset, eigenface.transpose())
 	test_weight = test_weight[:, :100]
+
 	t_SNE_visualizing(test_weight)
 
 	# Gram matrix
