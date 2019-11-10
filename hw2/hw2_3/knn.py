@@ -20,7 +20,7 @@ height = img_gray_3d.shape[1]
 
 
 def main():
-	parser = argparse.ArgumentParser(description='pca')
+	parser = argparse.ArgumentParser(description='knn')
 	parser.add_argument('--input_path', default = './hw2-3_data', help='path of input image')
 	parser.add_argument('--output_path', default = './knn_output', help = 'path of output image')
 
@@ -69,9 +69,7 @@ def main():
 
 	for p in k:
 		for q in n:
-			train_weight = np.zeros(shape = (TRAIN_TOTAL, TRAIN_TOTAL), dtype = np.float64)
-			for i in range(TRAIN_TOTAL):
-				train_weight[i,:] = np.dot(eigenface, normalized_train_img[i])
+			train_weight = np.dot(normalized_train_img, eigenface.transpose())
 			train_weight = train_weight[:, :q]
 	
 			knn = KNeighborsClassifier(n_neighbors = p)
@@ -95,14 +93,10 @@ def main():
 	best_n = int(best_param[1])
 	
 	# apply the best hyperparameter to knn
-	train_weight = np.zeros(shape = (TRAIN_TOTAL, TRAIN_TOTAL), dtype = np.float64)
-	for i in range(TRAIN_TOTAL):
-		train_weight[i,:] = np.dot(eigenface, normalized_train_img[i])
+	train_weight = np.dot(normalized_train_img, eigenface.transpose())
 	train_weight = train_weight[:, :best_n]
 
-	test_weight = np.zeros(shape = (TEST_TOTAL, TRAIN_TOTAL), dtype = np.float64)
-	for i in range(TEST_TOTAL):
-		test_weight[i,:] = np.dot(eigenface, normalized_test_img[i])
+	test_weight = np.dot(normalized_test_img, eigenface.transpose())
 	test_weight = test_weight[:, :best_n]
 
 	knn = KNeighborsClassifier(n_neighbors = best_k)
@@ -111,9 +105,6 @@ def main():
 
 	accuracy = accuracy_score(pred, testing_data_y)
 	print("accuracy on test data: {}".format(accuracy))
-
-
-
 
 
 if __name__ == '__main__':

@@ -2,10 +2,9 @@ from sklearn.decomposition import PCA
 import numpy as np
 import cv2
 import argparse
-import os
+import os, sys
 from sklearn.preprocessing import StandardScaler
 import random as rd
-from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
@@ -31,10 +30,11 @@ def do_pca(training_data):
 	return principalComponents
 
 class K_Means:
-	def __init__(self, k=10, tol=0.00001, max_iter=200):
+	def __init__(self, k=10, tol=0.00001, max_iter=200, image_path='./output_kmeans.png'):
 		self.k = k
 		self.tol = tol
 		self.max_iter = max_iter
+		self.image_path = image_path
 
 	def fit(self,data):
 		self.centroids = {}
@@ -54,23 +54,24 @@ class K_Means:
 				classification = distances.index(min(distances))
 				self.classifications[classification].append(featureset)
 
-			plt.figure(i+1)
-			plt.title('iter = '+str(i+1))
+			if i is 3:
+				plt.figure(i+1)
+				plt.title('iter = '+str(i+1))
 
-			for classification in self.classifications:
-				color = colors[classification]
-				marker = markers[classification]
-				for featureset in self.classifications[classification]:
-					plt.scatter(featureset[0], featureset[1], marker=marker, color=color, s=150, linewidths=5)
+				for classification in self.classifications:
+					color = colors[classification]
+					marker = markers[classification]
+					for featureset in self.classifications[classification]:
+						plt.scatter(featureset[0], featureset[1], marker=marker, color=color, s=150, linewidths=5)
 
 
-			for centroid in self.centroids:
-				plt.scatter(self.centroids[centroid][0], self.centroids[centroid][1],
-				marker="o", color="y", s=150, linewidths=5)
-			legend_elements = [Line2D([0], [0], marker='o', color='w', label='centroid', markerfacecolor = 'y', markersize = 10)]
-			plt.legend(handles = legend_elements, loc = 'best')
-			plt.savefig('./output_kmeans/iter_' + str(i+1) + '.png')
-			plt.show()
+				for centroid in self.centroids:
+					plt.scatter(self.centroids[centroid][0], self.centroids[centroid][1],
+					marker="o", color="y", s=150, linewidths=5)
+				legend_elements = [Line2D([0], [0], marker='o', color='w', label='centroid', markerfacecolor = 'y', markersize = 10)]
+				plt.legend(handles = legend_elements, loc = 'best')
+				plt.savefig(self.image_path)
+				plt.show()
 
 			prev_centroids = dict(self.centroids)
 
@@ -101,17 +102,14 @@ class K_Means:
 
 
 def main():
-	parser = argparse.ArgumentParser(description='kmeans')
-	parser.add_argument('--input_path', default = './hw2-3_data', help='path of input image')
-	parser.add_argument('--output_path', default = './output_kmeans', help = 'path of output image')
 
-	args = parser.parse_args()
+	folder, image_path = sys.argv[1], sys.argv[2]
 
 	training_data = np.ndarray(shape = (TRAIN_TOTAL, height*width), dtype = np.float64)
 	print(training_data.shape)
 	for i in range(0, 10):
 		for j in range(0, 7):
-			img_gray_3d = cv2.imread(args.input_path+'/'+str(i+1)+'_'+str(j+1)+'.png')
+			img_gray_3d = cv2.imread(folder+'/'+str(i+1)+'_'+str(j+1)+'.png')
 			img_gray_2d = cv2.cvtColor(img_gray_3d, cv2.COLOR_BGR2GRAY)
 			img_gray_1d = np.array(img_gray_2d, dtype = np.float64).flatten()
 			training_data[i*7+j,:] = img_gray_1d
@@ -122,7 +120,7 @@ def main():
 	print(testing_data.shape)
 	for i in range(0, 40):
 		for j in range(0, 3):
-			img_gray_3d = cv2.imread(args.input_path+'/'+str(i+1)+'_'+str(j+8)+'.png')
+			img_gray_3d = cv2.imread(folder+'/'+str(i+1)+'_'+str(j+8)+'.png')
 			img_gray_2d = cv2.cvtColor(img_gray_3d, cv2.COLOR_BGR2GRAY)
 			img_gray_1d = np.array(img_gray_2d, dtype = np.float64).flatten()
 			testing_data[i*3+j,:] = img_gray_1d

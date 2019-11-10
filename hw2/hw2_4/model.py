@@ -34,17 +34,22 @@ class Fully(nn.Module):
     def __init__(self):
         super(Fully, self).__init__()
         # TODO
-        self.fc1 = nn.Linear(784, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        # self.fc1 = nn.Linear(784, 120)
+        # self.fc2 = nn.Linear(120, 84)
+        # self.fc3 = nn.Linear(84, 10)
+        self.fc1 = nn.Sequential(nn.Linear(784, 120),
+                                nn.ReLU(),
+                                nn.Linear(120, 84),
+                                nn.Dropout(0.3),
+                                nn.ReLU(), 
+                                nn.Linear(84, 10))
 
 
     def forward(self, x):
         x = x.view(x.size(0),-1) # flatten input tensor
         # TODO
-        x = torch.nn.functional.relu(self.fc1(x))
-        x = torch.nn.functional.relu(self.fc2(x))
-        x = self.fc3(x)
+
+        x = self.fc1(x)
         return x
 
     def name(self):

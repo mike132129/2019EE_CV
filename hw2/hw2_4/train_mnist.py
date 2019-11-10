@@ -18,9 +18,11 @@ if __name__ == "__main__":
     # Specify the type of model
     if model_type == 'conv':
         model = ConvNet()
+        ep = 10
     elif model_type == 'fully':
         model = Fully()
-
+        ep = 15
+        
     # Set the type of gradient optimizer and the model it update 
     optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
@@ -32,7 +34,6 @@ if __name__ == "__main__":
     if use_cuda:
         model.cuda()
     # Run any number of epochs you want
-    ep = 10
 
     training_accuracy = []
     training_loss = []
@@ -60,7 +61,7 @@ if __name__ == "__main__":
 
             out = model(x)
             # Calculate loss
-            print(out.shape, label.shape)
+            #print(out.shape, label.shape)
             loss = criterion(out, label)
 
             # Compute gradient of each model parameters base on calculated loss
@@ -93,6 +94,8 @@ if __name__ == "__main__":
         correct_cnt, total_loss, total_cnt, ave_loss = 0, 0, 0, 0
 
         for batch, (x, label) in enumerate(val_loader,1):
+            if use_cuda:
+                x, label = x.cuda(), label.cuda()
             pred_val = model(x)
             loss = criterion(pred_val, label)
 
@@ -118,31 +121,41 @@ if __name__ == "__main__":
     # Save trained model
     torch.save(model.state_dict(), './checkpoint/%s.pth' % model.name())
 
-    print(model)
-
     # Plot Learning Curve
     # TODO
     epoch = list(range(ep))
 
     fig1 = plt.figure()
-    plt.plot(epoch, training_accuracy, 'r')
-    plt.plot(epoch, validation_accuracy, 'b')
-    plt.gca().legend(('training_accuracy', 'validation_accuracy'), loc = 'best')
+    plt.plot(epoch, training_accuracy, label = 'training accuracy')
+    plt.legend(loc = 'best')
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy')
-    plt.title('Accracy-Epoch')
-    plt.show(fig1)
-
+    plt.title('Epoch-training accuracy')
+    plt.savefig('./data/resnet_training_accuracy.png')
 
     fig2 = plt.figure()
-    plt.plot(epoch, training_loss, 'r')
-    plt.plot(epoch, validation_loss, 'b')
-    plt.gca().legend(('training_loss', 'validation_loss'), loc = 'best')
+    plt.plot(epoch, validation_accuracy, label = 'validation accurac')
+    plt.legend(loc = 'best')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.title('Epoch-validation accuracy')
+    plt.savefig('./data/resnet_validation_accuracy.png')
+
+    fig3 = plt.figure()
+    plt.plot(epoch, training_loss, label = 'training loss')
+    plt.legend(loc = 'best')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
-    plt.title('Loss-Epoch')
-    plt.show(fig2)
+    plt.title('Epoch-training loss')
+    plt.savefig('./data/resnet_training_loss.png')
 
+    fig4 = plt.figure()
+    plt.plot(epoch, validation_loss, label = 'validation loss')
+    plt.legend(loc = 'best')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Epoch-validation loss')
+    plt.savefig('./data/resnet_validation_loss.png')
 
 
   
