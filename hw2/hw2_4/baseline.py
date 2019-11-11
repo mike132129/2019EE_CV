@@ -22,12 +22,12 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 FEATURES_EXTRACTED = 256
-n_neighbors = 13
+n_neighbors = 1
 
 def do_pca(training_data):
 
 	x_train_std = StandardScaler().fit_transform(training_data)
-	pca = PCA(n_components=27).fit(x_train_std)
+	pca = PCA(n_components=25).fit(x_train_std)
 	principalComponents = pca.transform(x_train_std)
 
 	return principalComponents
@@ -82,10 +82,9 @@ def main():
 	feats_train = feats_train.reshape(6987, FEATURES_EXTRACTED)
 	train_y = np.array(train_y)
 
-	pca_feature_train = do_pca(feats_train)
 
 	knn = KNeighborsClassifier(n_neighbors = n_neighbors)
-	knn.fit(pca_feature_train, train_y)
+	knn.fit(feats_train, train_y)
 
 
 	# parsing valid data
@@ -106,10 +105,9 @@ def main():
 	feats_valid = np.array(feats_valid)
 	feats_valid = feats_valid.reshape(1526, FEATURES_EXTRACTED)
 
-	pca_feature_valid = do_pca(feats_valid)
 
-	train_pred = knn.predict(pca_feature_train)
-	val_pred = knn.predict(pca_feature_valid)
+	train_pred = knn.predict(feats_train)
+	val_pred = knn.predict(feats_valid)
 
 	train_accuracy = accuracy_score(train_pred, train_y)
 	val_accuracy = accuracy_score(val_pred, valid_y)
@@ -191,6 +189,3 @@ if __name__ == "__main__":
 	main()
     # TODO
     #folder, output_img = sys.argv[1], sys.argv[2]
-
-    
-
