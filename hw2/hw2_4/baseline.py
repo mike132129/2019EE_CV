@@ -20,6 +20,7 @@ from torchvision.models import alexnet
 import torchvision.transforms as transforms
 from PIL import Image
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 FEATURES_EXTRACTED = 256
 n_neighbors = 1
@@ -27,7 +28,7 @@ n_neighbors = 1
 def do_pca(training_data):
 
 	x_train_std = StandardScaler().fit_transform(training_data)
-	pca = PCA(n_components=25).fit(x_train_std)
+	pca = PCA(n_components=50).fit(x_train_std)
 	principalComponents = pca.transform(x_train_std)
 
 	return principalComponents
@@ -35,7 +36,7 @@ def do_pca(training_data):
 
 def get_dataloader(folder, batch_size=32):
 	# Data preprocessing
-	normalize = transforms.Normalize(mean=[3*0.485, 3*0.456, 3*0.406], std=[0.229, 0.224, 0.225])
+	normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 	trans = transforms.Compose([transforms.ToTensor(), normalize])
 	train_path, val_path = os.path.join(folder,'train'), os.path.join(folder,'valid')
 	# Get dataset using pytorch functions
@@ -65,7 +66,7 @@ def main():
 	feats_train = []
 	train_y = []
 
-	for batch, (x, label) in enumerate(train_loader,1):
+	for batch, (x, label) in enumerate(tqdm(train_loader),1):
 		
 		if torch.cuda.is_available():
 			x = x.cuda()
@@ -82,15 +83,21 @@ def main():
 	feats_train = feats_train.reshape(6987, FEATURES_EXTRACTED)
 	train_y = np.array(train_y)
 
+	#pca_feats_train = do_pca(feats_train)
+	x_train_std = StandardScaler().fit_transform(feats_train)
+	pca = PCA(n_components=25).fit(x_train_std)
+	pca_feats_train = pca.transform(x_train_std)
+
+
 
 	knn = KNeighborsClassifier(n_neighbors = n_neighbors)
-	knn.fit(feats_train, train_y)
+	knn.fit(pca_feats_train, train_y)
 
 
 	# parsing valid data
 	valid_y = []
 	feats_valid = []
-	for batch, (x, label) in enumerate(val_loader, 1):
+	for batch, (x, label) in enumerate(tqdm(val_loader), 1):
 		if torch.cuda.is_available():
 			x = x.cuda()
 			label = label.cuda()
@@ -106,8 +113,13 @@ def main():
 	feats_valid = feats_valid.reshape(1526, FEATURES_EXTRACTED)
 
 
-	train_pred = knn.predict(feats_train)
-	val_pred = knn.predict(feats_valid)
+	# do pca to valid
+	x_valid_std = StandardScaler().fit_transform(feats_valid)
+	pca_feats_valid = pca.transform(x_valid_std)
+
+
+	train_pred = knn.predict(pca_feats_train)
+	val_pred = knn.predict(pca_feats_valid)
 
 	train_accuracy = accuracy_score(train_pred, train_y)
 	val_accuracy = accuracy_score(val_pred, valid_y)
@@ -116,73 +128,73 @@ def main():
 	print("accuracy on validation data: {}".format(val_accuracy))	
 
 	# Get first 10 train identities
-	train10 = []
-	number = np.zeros(10)
-	for batch, (x, label) in enumerate(train_loader, 1):
-		if torch.cuda.is_available():
-			x = x.cuda()
-			label = label.cuda()
+	# train10 = []
+	# number = np.zeros(10)
+	# for batch, (x, label) in enumerate(train_loader, 1):
+	# 	if torch.cuda.is_available():
+	# 		x = x.cuda()
+	# 		label = label.cuda()
 
-		if label.item() < 10:
-			feat = extractor(x).view(x.size(0), FEATURES_EXTRACTED, -1)
-			feat = torch.mean(feat, 2)
-			feat = feat.cpu().detach().numpy()
-			train10.append(feat)
-			number[label.item()] += 1
-	train10 = np.array(train10)
-	train10 = train10.reshape(train10.shape[0], train10.shape[2])
-
-
-	# plot training TSNE
-	tsne = TSNE(perplexity = 30)
-	x_2d = tsne.fit_transform(train10)
-	plt.figure()
-	plt.subplot(1,2,1)
-	plt.gca().set_title('t-SNE training data visualization')
-	colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k', 'gray', 'orange', 'purple']
-	t = 0
-	c = 0
-	for i in number:
-		for j in range(int(i)):
-			plt.scatter(x_2d[t, 0], x_2d[t, 1], c = colors[c])
-			t+=1
-		c+=1
+	# 	if label.item() < 10:
+	# 		feat = extractor(x).view(x.size(0), FEATURES_EXTRACTED, -1)
+	# 		feat = torch.mean(feat, 2)
+	# 		feat = feat.cpu().detach().numpy()
+	# 		train10.append(feat)
+	# 		number[label.item()] += 1
+	# train10 = np.array(train10)
+	# train10 = train10.reshape(train10.shape[0], train10.shape[2])
 
 
-
-	# Get first 10 valid identities
-	valid10 = []
-	number = np.zeros(10)
-	for batch, (x, label) in enumerate(val_loader, 1):
-		if torch.cuda.is_available():
-			x = x.cuda()
-			label = label.cuda()
-
-		if label.item() < 10:
-			feat = extractor(x).view(x.size(0), FEATURES_EXTRACTED, -1)
-			feat = torch.mean(feat, 2)
-			feat = feat.cpu().detach().numpy()
-			valid10.append(feat)
-			number[label.item()] += 1
-	valid10 = np.array(valid10)
-	valid10 = valid10.reshape(valid10.shape[0], valid10.shape[2])
+	# # plot training TSNE
+	# tsne = TSNE(perplexity = 30)
+	# x_2d = tsne.fit_transform(train10)
+	# plt.figure()
+	# plt.subplot(1,2,1)
+	# plt.gca().set_title('t-SNE training data visualization')
+	# colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k', 'gray', 'orange', 'purple']
+	# t = 0
+	# c = 0
+	# for i in number:
+	# 	for j in range(int(i)):
+	# 		plt.scatter(x_2d[t, 0], x_2d[t, 1], c = colors[c])
+	# 		t+=1
+	# 	c+=1
 
 
-	# plot training TSNE
-	tsne = TSNE(perplexity = 30)
-	x_2d = tsne.fit_transform(train10)
-	plt.subplot(1,2,2)
-	plt.gca().set_title('t-SNE valid data visualization')
-	colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k', 'gray', 'orange', 'purple']
-	t = 0
-	c = 0
-	for i in number:
-		for j in range(int(i)):
-			plt.scatter(x_2d[t, 0], x_2d[t, 1], c = colors[c])
-			t+=1
-		c+=1
-	plt.savefig(image_path)
-	plt.show()
+
+	# # Get first 10 valid identities
+	# valid10 = []
+	# number = np.zeros(10)
+	# for batch, (x, label) in enumerate(val_loader, 1):
+	# 	if torch.cuda.is_available():
+	# 		x = x.cuda()
+	# 		label = label.cuda()
+
+	# 	if label.item() < 10:
+	# 		feat = extractor(x).view(x.size(0), FEATURES_EXTRACTED, -1)
+	# 		feat = torch.mean(feat, 2)
+	# 		feat = feat.cpu().detach().numpy()
+	# 		valid10.append(feat)
+	# 		number[label.item()] += 1
+	# valid10 = np.array(valid10)
+	# valid10 = valid10.reshape(valid10.shape[0], valid10.shape[2])
+
+
+	# # plot training TSNE
+	# tsne = TSNE(perplexity = 30)
+	# x_2d = tsne.fit_transform(train10)
+	# plt.subplot(1,2,2)
+	# plt.gca().set_title('t-SNE valid data visualization')
+	# colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k', 'gray', 'orange', 'purple']
+	# t = 0
+	# c = 0
+	# for i in number:
+	# 	for j in range(int(i)):
+	# 		plt.scatter(x_2d[t, 0], x_2d[t, 1], c = colors[c])
+	# 		t+=1
+	# 	c+=1
+	# plt.savefig(image_path)
+	# plt.show()
 
 
 if __name__ == "__main__":
