@@ -67,7 +67,7 @@ def eigen_face(training_data):
 
 def t_SNE_visualizing(x):
 
-	tsne = TSNE(perplexity = 30)
+	tsne = TSNE(perplexity = 80)
 	x_2d = tsne.fit_transform(x)
 	plt.figure()
 	colors = 10*['r', 'g', 'b', 'c', 'm', 'y', 'k', 'gray', 'orange', 'purple']
