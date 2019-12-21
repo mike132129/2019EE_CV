@@ -65,9 +65,9 @@ def writePFM(file, image, scale=1):
     image.tofile(file)
     
 def cal_avgerr(GT, disp):
-    print(GT - disp)
-    print("b", GT)
-    print("a", disp)
+
+    # print("Ground Truth:", GT)
+    # print("Disparity map_UTIL:", disp)
     return np.sum(np.multiply(np.abs(GT - disp), GT[GT != np.inf].reshape(GT.shape))) / np.sum(GT[GT != np.inf])
 
 

@@ -1,65 +1,166 @@
+
+from __future__ import print_function
+
 import numpy as np
 import argparse
 import cv2
 import time
 from util import writePFM
+from matplotlib import pyplot as plt
+from epipolar import find_epipoloarline, drawlines
+
+import argparse
+import os
+import random
+import torch
+import torch.nn as nn
+import torch.nn.parallel
+import torch.backends.cudnn as cudnn
+import torch.optim as optim
+import torch.utils.data
+from torch.autograd import Variable
+import torch.nn.functional as F
+import numpy as np
+import time
+import math
+from PSMNet_utils import preprocess 
+from models import *
+import cv2.ximgproc as cv2_x
+import pdb
+
 
 parser = argparse.ArgumentParser(description='Disparity Estimation')
 parser.add_argument('--input-left', default='./data/Synthetic/TL0.png', type=str, help='input left image')
 parser.add_argument('--input-right', default='./data/Synthetic/TR0.png', type=str, help='input right image')
 parser.add_argument('--output', default='./result1/TL0.pfm', type=str, help='left disparity map')
+parser.add_argument('--loadmodel', default='./pretrained_model_KITTI2015.tar', help='loading model')
+parser.add_argument('--isgray', default= False, help='load model')
+parser.add_argument('--model', default='stackhourglass', help='select model')
+parser.add_argument('--maxdisp', type=int, default=192, help='maxium disparity')
+parser.add_argument('--no-cuda', action='store_true', default=False, help='enables CUDA training')
+parser.add_argument('--seed', type=int, default=1, metavar='S', help='random seed (default: 1)')
+args = parser.parse_args()
+args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-def cut(disparity, image, threshold):
-    for i in range(0, image.height):
-        for j in range(0, image.width):
-            if cv2.GetReal2D(disparity, i, j) > threshold:
-                cv2.Set2D(disparity, i, j, Get2D(image, i, j))
+torch.manual_seed(args.seed)
+if args.cuda:
+    torch.cuda.manual_seed(args.seed)
+#test_left_img, test_right_img = DA.dataloader(args.datapath)
 
+if args.model == 'stackhourglass':
+    model = stackhourglass(args.maxdisp)
+    print('stackhourglass')
+elif args.model == 'basic':
+    model = basic(args.maxdisp)
+    print('basic')
+else:
+    print('no model')
 
-# You can modify the function interface as you like
-def computeDisp(Il, Ir):
-    h, w, ch = Il.shape
-    disp = np.zeros((h, w), dtype=np.int32)
+model = nn.DataParallel(model, device_ids=[0])
+model.cuda()
 
-    Il = cv2.cvtColor(Il, cv2.COLOR_BGR2GRAY)
-    Ir = cv2.cvtColor(Ir, cv2.COLOR_BGR2GRAY)
+if args.loadmodel is not None:
+    print('load PSMNet')
+    state_dict = torch.load(args.loadmodel)
+    model.load_state_dict(state_dict['state_dict'])
 
-    # Il, Ir = cv2.GaussianBlur(Il, (1, 1), ), cv2.GaussianBlur(Ir, (1, 1), )
-
-    # stereo = cv2.cv2.StereoSGBM_create(0, 32, 31)
-    # disp = stereo.compute(Il, Ir)
-
-    disp_l = cv2.CreateImage(h, w, cv2.CV_16S)
-    disp_r = cv2.CreateImage(Ir.shape[0], Ir.shape[1], cv2.CV_16S)
-
-    state = cv2.CreateStereoGCState(16, 2)
-
-    cv2.FindStereoCorrespondenceGC(Il, Ir, disp_l, disp_r, state)
-
-    disp_l_visual = cv2.CreateMat(Il.height, Ir.width, cv2.CV_8U)
-    cv2.ConvertScale(disp_l, disp_l_visual, -20)
-    cut(disp_l_visual, Il, 120)
-
-    cv2.namedWindow('DISPARITY MAP', cv2.WINDOW_NORMAL)
-    cv2.imshow('DISPARITY MAP', disp_l_visual)
-    cv2.waitKey(0)
+print('Number of model parameters: {}'.format(sum([p.data.nelement() for p in model.parameters()])))
 
 
+def test(imgL,imgR):
+    model.eval()
+
+    if args.cuda:
+       imgL = torch.FloatTensor(imgL).cuda()
+       imgR = torch.FloatTensor(imgR).cuda()     
+
+    imgL, imgR= Variable(imgL), Variable(imgR)
+
+    with torch.no_grad():
+        disp = model(imgL,imgR)
+    
+    disp = torch.squeeze(disp[0])
+    pred_disp = disp.data.cpu().numpy()
+
+    return pred_disp
+
+def computeDisp(imgL_o, imgR_o):
+
+    processed = preprocess.get_transform(augment=False)
+        
+    imgL = processed(imgL_o).numpy()
+    imgR = processed(imgR_o).numpy()
+    imgL = np.reshape(imgL,[1,3,imgL.shape[1],imgL.shape[2]])
+    imgR = np.reshape(imgR,[1,3,imgR.shape[1],imgR.shape[2]])
+
+    # pad to width and hight to 16 times
+    if imgL.shape[2] % 16 != 0:
+        times = imgL.shape[2]//16       
+        top_pad = (times+1)*16 -imgL.shape[2]
+    else:
+        top_pad = 0
+    if imgL.shape[3] % 16 != 0:
+        times = imgL.shape[3]//16                       
+        left_pad = (times+1)*16-imgL.shape[3]
+    else:
+        left_pad = 0     
+    imgL = np.lib.pad(imgL,((0,0),(0,0),(top_pad,0),(0,left_pad)),mode='constant',constant_values=0)
+    imgR = np.lib.pad(imgR,((0,0),(0,0),(top_pad,0),(0,left_pad)),mode='constant',constant_values=0)
 
 
-    return disp_l_visual
+    start_time = time.time()
+    pred_disp = test(imgL,imgR)
+
+    ####################################  Original Disp ###
+    print('time = %.2f' %(time.time() - start_time))
+    if top_pad !=0 and left_pad != 0:
+        img = pred_disp[top_pad:,:-left_pad]
+
+    elif top_pad != 0 and left_pad == 0:
+        img = pred_disp[top_pad:, :]
+
+    elif top_pad == 0 and left_pad != 0:
+        img = pred_disp[:, :-left_pad]
+
+    elif top_pad == 0 and left_pad == 0:
+        img = pred_disp
+
+    pdb.set_trace()
+
+
+    output = refinement(imgL_o, img)
+
+
+
+    return output
+
+
+       
+def refinement(Original, disp):
+
+    disp = cv2_x.weightedMedianFilter(Original.astype('uint8'), disp.astype('uint8'), 15, 5, cv2_x.WMF_JAC)
+    disp = cv2_x.weightedMedianFilter(Original.astype('uint8'), disp.astype('uint8'), 15, 5, cv2_x.WMF_JAC)
+
+    return disp
+
 
 
 def main():
-    args = parser.parse_args()
-
-    print(args.output)
+    
+    print('output file path:', args.output)
     print('Compute disparity for %s' % args.input_left)
-    img_left = cv2.imread(args.input_left)
-    img_right = cv2.imread(args.input_right)
+
+    if args.isgray:
+       imgL_o = cv2.cvtColor(cv2.imread(args.input_left, 0), cv2.COLOR_GRAY2RGB)
+       imgR_o = cv2.cvtColor(cv2.imread(args.input_right, 0), cv2.COLOR_GRAY2RGB)
+    else:
+       imgL_o = (cv2.imread(args.input_left))
+       imgR_o = (cv2.imread(args.input_right))
+
     tic = time.time()
-    disp = np.float32(computeDisp(img_left, img_right))
+    disp = np.float32(computeDisp(imgL_o, imgR_o))
     toc = time.time()
+
     writePFM(args.output, disp)
     print('Elapsed time: %f sec.' % (toc - tic))
 
