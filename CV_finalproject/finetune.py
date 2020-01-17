@@ -30,7 +30,7 @@ parser.add_argument('--datatype', default='2015',
                     help='datapath')
 parser.add_argument('--datapath', default='/media/jiaren/ImageNet/data_scene_flow_2015/training/',
                     help='datapath')
-parser.add_argument('--epochs', type=int, default=300,
+parser.add_argument('--epochs', type=int, default=20,
                     help='number of epochs to train')
 parser.add_argument('--loadmodel', default='./trained/submission_model.tar',
                     help='load model')
@@ -55,11 +55,13 @@ all_left_img, all_right_img, all_left_disp, test_left_img, test_right_img, test_
 
 TrainImgLoader = torch.utils.data.DataLoader(
          DA.myImageFloder(all_left_img,all_right_img,all_left_disp, True), 
-         batch_size= 12, shuffle= True, num_workers= 8, drop_last=False)
+         batch_size= 2, shuffle= True, num_workers= 8, drop_last=False)
+
+print('trainimageloader:',len(TrainImgLoader))
 
 TestImgLoader = torch.utils.data.DataLoader(
          DA.myImageFloder(test_left_img,test_right_img,test_left_disp, False), 
-         batch_size= 8, shuffle= False, num_workers= 4, drop_last=False)
+         batch_size= 1, shuffle= False, num_workers= 4, drop_last=False)
 
 if args.model == 'stackhourglass':
     model = stackhourglass(args.maxdisp)
@@ -80,14 +82,31 @@ print('Number of model parameters: {}'.format(sum([p.data.nelement() for p in mo
 
 optimizer = optim.Adam(model.parameters(), lr=0.1, betas=(0.9, 0.999))
 
+# Freeze some layers
+freez_layer = 0
+layer_count = 0
+for para in model.parameters():
+    layer_count += 1
+    if freez_layer == 230:
+        continue
+    para.requires_grad = False
+    freez_layer += 1
+    
+
+print(layer_count)
+
+
 def train(imgL,imgR,disp_L):
         model.train()
-        imgL   = Variable(torch.FloatTensor(imgL))
-        imgR   = Variable(torch.FloatTensor(imgR))   
-        disp_L = Variable(torch.FloatTensor(disp_L))
-
+        #imgL   = F.interpolate(Variable(torch.FloatTensor(imgL)), scale_factor = 0.5)
+        #imgR   = F.interpolate(Variable(torch.FloatTensor(imgR)), scale_factor = 0.5)   
+        #disp_L = F.interpolate(Variable(torch.FloatTensor(disp_L)), scale_factor = 0.5)
         
-
+        imgL = Variable(torch.FloatTensor(imgL))
+        imgR = Variable(torch.FloatTensor(imgR))
+        disp_L = Variable(torch.FloatTensor(disp_L))
+        # print('dispL: {}'.format(disp_L))	
+    
         if args.cuda:
             imgL, imgR, disp_true = imgL.cuda(), imgR.cuda(), disp_L.cuda()
 
@@ -96,8 +115,10 @@ def train(imgL,imgR,disp_L):
         mask.detach_()
         #----
 
+        # pdb.set_trace()	
+
         optimizer.zero_grad()
-        
+                
         if args.model == 'stackhourglass':
             output1, output2, output3 = model(imgL,imgR)
             output1 = torch.squeeze(output1,1)
@@ -111,21 +132,22 @@ def train(imgL,imgR,disp_L):
 
         loss.backward()
         optimizer.step()
-
+        #pdb.set_trace()
         return loss.item()
 
 def test(imgL,imgR,disp_true):
         model.eval()
         imgL   = Variable(torch.FloatTensor(imgL))
         imgR   = Variable(torch.FloatTensor(imgR))   
+
         if args.cuda:
             imgL, imgR = imgL.cuda(), imgR.cuda()
 
         with torch.no_grad():
             output3 = model(imgL,imgR)
 
-        pdb.set_trace()
-        pred_disp = output3[0].data.cpu()
+        # pdb.set_trace()
+        pred_disp = output3[2].data.cpu()
 
         #computing 3-px error#
         true_disp = disp_true
@@ -137,8 +159,8 @@ def test(imgL,imgR,disp_true):
         return 1-(float(torch.sum(correct))/float(len(index[0])))
 
 def adjust_learning_rate(optimizer, epoch):
-    if epoch <= 200:
-       lr = 0.001
+    if epoch <= 400:
+       lr = 0.0005
     else:
        lr = 0.0001
     print(lr)
@@ -180,12 +202,14 @@ def main():
         print('MAX epoch %d total test error = %.3f' %(max_epo, max_acc))
 
        #SAVE
-        savefilename = args.savemodel+'finetune_'+str(epoch)+'.tar'
-        torch.save({
-            'epoch': epoch,
-            'state_dict': model.state_dict(),
-            'train_loss': total_train_loss/len(TrainImgLoader),
-            'test_loss': total_test_loss/len(TestImgLoader)*100,
+        if (epoch%1) == 0:
+
+            savefilename = args.savemodel+'finetune_'+str(epoch)+'.tar'
+            torch.save({
+                'epoch': epoch,
+                'state_dict': model.state_dict(),
+                'train_loss': total_train_loss/len(TrainImgLoader),
+                'test_loss': total_test_loss/len(TestImgLoader)*100,
             }, savefilename)
 
     print('full finetune time = %.2f HR' %((time.time() - start_full_time)/3600))

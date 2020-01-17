@@ -7,7 +7,6 @@ import cv2
 import time
 from util import writePFM
 from matplotlib import pyplot as plt
-from epipolar import find_epipoloarline, drawlines
 
 import argparse
 import os
@@ -27,14 +26,13 @@ from PSMNet_utils import preprocess
 from models import *
 import cv2.ximgproc as cv2_x
 import pdb
-
+from classify import is_gray_img
 
 parser = argparse.ArgumentParser(description='Disparity Estimation')
 parser.add_argument('--input-left', default='./data/Synthetic/TL0.png', type=str, help='input left image')
 parser.add_argument('--input-right', default='./data/Synthetic/TR0.png', type=str, help='input right image')
 parser.add_argument('--output', default='./result1/TL0.pfm', type=str, help='left disparity map')
 parser.add_argument('--loadmodel', default='./pretrained_model_KITTI2015.tar', help='loading model')
-parser.add_argument('--isgray', default= False, help='load model')
 parser.add_argument('--model', default='stackhourglass', help='select model')
 parser.add_argument('--maxdisp', type=int, default=192, help='maxium disparity')
 parser.add_argument('--no-cuda', action='store_true', default=False, help='enables CUDA training')
@@ -45,7 +43,6 @@ args.cuda = not args.no_cuda and torch.cuda.is_available()
 torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
-#test_left_img, test_right_img = DA.dataloader(args.datapath)
 
 if args.model == 'stackhourglass':
     model = stackhourglass(args.maxdisp)
@@ -56,16 +53,17 @@ elif args.model == 'basic':
 else:
     print('no model')
 
+is_real = is_gray_img(args.input_left)
+
 model = nn.DataParallel(model, device_ids=[0])
 model.cuda()
 
-if args.loadmodel is not None:
-    print('load PSMNet')
-    state_dict = torch.load(args.loadmodel)
+if is_real:
+    state_dict = torch.load('final_real.tar')
     model.load_state_dict(state_dict['state_dict'])
-
-print('Number of model parameters: {}'.format(sum([p.data.nelement() for p in model.parameters()])))
-
+else:
+    state_dict = torch.load('final_synthetic.tar')
+    model.load_state_dict(state_dict['state_dict'])
 
 def test(imgL,imgR):
     model.eval()
@@ -79,7 +77,7 @@ def test(imgL,imgR):
     with torch.no_grad():
         disp = model(imgL,imgR)
     
-    disp = torch.squeeze(disp[0])
+    disp = torch.squeeze(disp[1])
     pred_disp = disp.data.cpu().numpy()
 
     return pred_disp
@@ -125,14 +123,11 @@ def computeDisp(imgL_o, imgR_o):
     elif top_pad == 0 and left_pad == 0:
         img = pred_disp
 
-    pdb.set_trace()
-
-
-    output = refinement(imgL_o, img)
-
-
-
-    return output
+    img = refinement(imgL_o, img)
+    if is_real:
+        return np.subtract(192, img)
+    
+    return img
 
 
        
@@ -149,18 +144,27 @@ def main():
     
     print('output file path:', args.output)
     print('Compute disparity for %s' % args.input_left)
+    
+    isgray = is_gray_img(args.input_left)
 
-    if args.isgray:
+    if isgray:
        imgL_o = cv2.cvtColor(cv2.imread(args.input_left, 0), cv2.COLOR_GRAY2RGB)
        imgR_o = cv2.cvtColor(cv2.imread(args.input_right, 0), cv2.COLOR_GRAY2RGB)
     else:
-       imgL_o = (cv2.imread(args.input_left))
-       imgR_o = (cv2.imread(args.input_right))
+       imgL_o = cv2.imread(args.input_left)
+       imgR_o = cv2.imread(args.input_right)
+
+    imgL_o = cv2.cvtColor(imgL_o, cv2.COLOR_BGR2GRAY)
+    imgR_o = cv2.cvtColor(imgR_o, cv2.COLOR_BGR2GRAY)
+
+    imgL_o = cv2.cvtColor(imgL_o, cv2.COLOR_GRAY2RGB)
+    imgR_o = cv2.cvtColor(imgR_o, cv2.COLOR_GRAY2RGB)
 
     tic = time.time()
     disp = np.float32(computeDisp(imgL_o, imgR_o))
     toc = time.time()
-
+    
+    print('dispmap: {}'.format(disp))
     writePFM(args.output, disp)
     print('Elapsed time: %f sec.' % (toc - tic))
 
