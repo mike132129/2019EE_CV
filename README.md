@@ -10,7 +10,17 @@
 2. compute cost between
 3. get the best conversion where the guidance leads to minimum cost
 
+- concept
+
 ![](./image/jbf.PNG)
+
+- range kernel
+
+![](./image/range-kernal.PNG)
+
+- spatial kernel 
+
+![](./image/spatial-kernel.PNG)
 
 
 
