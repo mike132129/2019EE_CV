@@ -1,11 +1,29 @@
-# 2019EE_CV
+# 2019EE_CV 
+[couse website link](http://media.ee.ntu.edu.tw/courses/cv/19F/)
 
-HW1: Joint Bilateral Filter
 
-HW2: Basic CNN
+### HW1: Joint Bilateral Filter
 
-HW3: Homography transformation
+[slide](http://media.ee.ntu.edu.tw/courses/cv/19F/hw/hw1/hw1.pdf)
 
-HW4: Stereo Matching 
+1. find a better conversion with bilateral filter and Joint-bilateral filter
+2. compute cost between
+3. get the best conversion where the guidance leads to minimum cost
 
-Final project: Stereo Matching(PSMNet)
+![](./image/jbf.PNG)
+
+
+
+
+
+
+
+
+
+### HW2: Basic CNN
+
+### HW3: Homography transformation
+
+### HW4: Stereo Matching 
+
+### Final project: Stereo Matching(PSMNet)
