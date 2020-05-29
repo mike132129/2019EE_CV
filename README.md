@@ -16,7 +16,7 @@
 
 - range kernel
 
-![](./image/range-kernal.PNG)
+![](./image/range-kernel.PNG)
 
 - spatial kernel 
 
