@@ -23,13 +23,6 @@
 ![](./image/spatial-kernel.PNG)
 
 
-
-
-
-
-
-
-
 ### HW2: Basic CNN
 
 ### HW3: Homography transformation
